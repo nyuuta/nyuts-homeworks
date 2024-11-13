@@ -11,7 +11,7 @@ struct Data {
     std::size_t start;
     std::size_t end;
 
-    Data(const std::vector<int>& arr) : arr(arr) {} // Конструктор с параметром
+    Data(const std::vector<int>& arr) : arr(arr) {} 
 };
 
 void* partial_sum(void* arg) {
@@ -45,8 +45,7 @@ int main(int argc, char** argv) {
 
     pthread_t* threads = new pthread_t[M];
 
-    // Используем std::vector<Data> вместо массива
-    std::vector<Data> thread_data(M, Data(arr));  // Конструируем элементы с нужным конструктором
+    std::vector<Data> thread_data(M, Data(arr));
 
     long long sum_with_threads = 0;
     std::size_t block_size = N / M;
