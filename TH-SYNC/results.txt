@@ -1,0 +1,3 @@
+Time with pthread_mutex_lock inside increment: 0.00641058 seconds
+Time with pthread_spin_lock inside increment: 0.0063824 seconds
+Time with semaphore inside increment: 0.00635408 seconds
