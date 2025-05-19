@@ -9,6 +9,7 @@
 #include <ctime>
 #include <string>
 #include <iostream>
+#include <algorithm>
 
 struct Superblock {
     int block_size = 512;
@@ -41,6 +42,15 @@ int allocate_block() {
         }
     }
     return -1;
+}
+
+static int myfs_utimens(const char *path, const struct timespec tv[2],
+                        struct fuse_file_info *fi) {
+    auto it = inode_table.find(path);
+    if (it == inode_table.end()) return -ENOENT;
+
+    it->second.modified = tv[1].tv_sec;
+    return 0;
 }
 
 static int myfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
@@ -112,7 +122,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset,
         if (block_index >= inode.blocks.size()) break;
 
         int block_no = inode.blocks[block_index];
-        size_t to_read = std::min(BLOCK_SIZE - block_offset, size - bytes_read);
+        size_t to_read = std::min(BLOCK_SIZE - block_offset, static_cast<int>(size - bytes_read));
 
         memcpy(buf + bytes_read, &disk[block_no][block_offset], to_read);
 
@@ -122,7 +132,22 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset,
     return bytes_read;
 }
 
-]static int myfs_write(const char *path, const char *buf, size_t size, off_t offset,
+static int myfs_unlink(const char *path) {
+    auto it = inode_table.find(path);
+    if (it == inode_table.end()) return -ENOENT;
+
+    // Освобождаем блоки
+    for (int block : it->second.blocks) {
+        block_used[block] = false;
+        sb.free_blocks++;
+    }
+
+    inode_table.erase(it);
+    sb.inode_count--;
+    return 0;
+}
+
+static int myfs_write(const char *path, const char *buf, size_t size, off_t offset,
                       struct fuse_file_info *fi) {
     auto it = inode_table.find(path);
     if (it == inode_table.end()) return -ENOENT;
@@ -141,7 +166,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset,
         }
 
         int block_no = inode.blocks[block_index];
-        size_t to_write = std::min(BLOCK_SIZE - block_offset, size - bytes_written);
+        size_t to_write = std::min(BLOCK_SIZE - block_offset, static_cast<int>(size - bytes_written));
 
         memcpy(&disk[block_no][block_offset], buf + bytes_written, to_write);
         bytes_written += to_write;
@@ -152,15 +177,17 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset,
     return bytes_written;
 }
 
-static struct fuse_operations myfs_oper = {
-    .getattr = myfs_getattr,
-    .readdir = myfs_readdir,
-    .create  = myfs_create,
-    .open    = myfs_open,
-    .read    = myfs_read,
-    .write   = myfs_write,
-};
+static struct fuse_operations myfs_oper = {0};
 
 int main(int argc, char *argv[]) {
+    myfs_oper.utimens = myfs_utimens;
+    myfs_oper.getattr = myfs_getattr;
+    myfs_oper.readdir = myfs_readdir;
+    myfs_oper.open = myfs_open;
+    myfs_oper.read = myfs_read;
+    myfs_oper.write = myfs_write;
+    myfs_oper.create = myfs_create;
+    myfs_oper.unlink = myfs_unlink;
+
     return fuse_main(argc, argv, &myfs_oper, NULL);
 }
