@@ -22,6 +22,7 @@ MyFS is a lightweight, in-memory file system built with FUSE. It simulates a bas
 
 Install required dependencies:
 
+chmod +x install_deps.sh
 ./install_deps.sh
 
 -------------------------
@@ -38,6 +39,7 @@ make
 
 Mount the file system to `/tmp/myfs` using:
 
+chmod +x run_fs.sh
 ./run_fs.sh
 
 You can now interact with it like a regular directory:
