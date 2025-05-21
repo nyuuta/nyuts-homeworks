@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall $(shell pkg-config fuse3 --cflags)
-LDFLAGS = $(shell pkg-config fuse3 --libs)
+LDFLAGS = $(shell pkg-config fuse3 --libs) -lssl -lcrypto
 TARGET = myfs
 SRC = main.cpp
 

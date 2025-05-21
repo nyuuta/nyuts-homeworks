@@ -10,6 +10,7 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <openssl/sha.h>
 
 struct Superblock {
     int block_size = 512;
@@ -32,6 +33,27 @@ std::vector<std::vector<char>> disk(TOTAL_BLOCKS, std::vector<char>(BLOCK_SIZE))
 std::vector<bool> block_used(TOTAL_BLOCKS, false);
 Superblock sb;
 std::unordered_map<std::string, Inode> inode_table;
+
+std::string sha256(const std::string &str) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256((const unsigned char *)str.c_str(), str.size(), hash);
+    char output[65];
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+        sprintf(output + i * 2, "%02x", hash[i]);
+    output[64] = 0;
+    return std::string(output);
+}
+
+bool check_password() {
+    std::string input;
+    std::cout << "Enter password: ";
+    std::cin >> input;
+
+    std::string hash = sha256(input);
+    const std::string stored_hash = "4f49a49ad55d07205ebd49098c3f4bc8c53494ff8614c1568a004fe78a31b350"; // "myfspass"
+
+    return hash == stored_hash;
+}
 
 int allocate_block() {
     for (int i = 0; i < TOTAL_BLOCKS; ++i) {
@@ -180,6 +202,11 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
 static struct fuse_operations myfs_oper = {0};
 
 int main(int argc, char *argv[]) {
+
+    if (!check_password()) {
+        std::cerr << "Access denied: wrong password." << std::endl;
+        return 1;
+    }
     myfs_oper.utimens = myfs_utimens;
     myfs_oper.getattr = myfs_getattr;
     myfs_oper.readdir = myfs_readdir;
