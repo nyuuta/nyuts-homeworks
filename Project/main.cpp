@@ -11,6 +11,7 @@
 #include <iostream>
 #include <algorithm>
 #include <openssl/sha.h>
+#include <openssl/evp.h>
 
 struct Superblock {
     int block_size = 512;
@@ -74,6 +75,21 @@ static int myfs_utimens(const char *path, const struct timespec tv[2],
     it->second.modified = tv[1].tv_sec;
     return 0;
 }
+
+const std::string encryption_key = "nyuta";
+
+std::string encrypt(const std::string &originalData) {
+    std::string encryptedData= originalData;
+    for (size_t i = 0; i < originalData.size(); ++i) {
+        encryptedData[i] ^= encryption_key[i % encryption_key.size()];
+    }
+    return encryptedData;
+}
+
+std::string decrypt(const std::string &encryptedData) {
+    return encrypt(encryptedData);
+}
+
 
 static int myfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
     memset(stbuf, 0, sizeof(struct stat));
@@ -151,14 +167,16 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset,
         bytes_read += to_read;
         offset += to_read;
     }
-    return bytes_read;
+    std::string encrypted(buf, bytes_read);
+    std::string decrypted = decrypt(encrypted);
+    memcpy(buf, decrypted.c_str(), decrypted.size());
+    return decrypted.size();
 }
 
 static int myfs_unlink(const char *path) {
     auto it = inode_table.find(path);
     if (it == inode_table.end()) return -ENOENT;
 
-    // Освобождаем блоки
     for (int block : it->second.blocks) {
         block_used[block] = false;
         sb.free_blocks++;
@@ -176,8 +194,9 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
 
     Inode &inode = it->second;
     size_t bytes_written = 0;
-
-    while (bytes_written < size) {
+    std::string originalData(buf, size);
+    std::string encrypted = encrypt(originalData.c_str());
+    while (bytes_written < encrypted.size()) {
         int block_index = (offset + bytes_written) / BLOCK_SIZE;
         int block_offset = (offset + bytes_written) % BLOCK_SIZE;
 
@@ -188,9 +207,8 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
         }
 
         int block_no = inode.blocks[block_index];
-        size_t to_write = std::min(BLOCK_SIZE - block_offset, static_cast<int>(size - bytes_written));
-
-        memcpy(&disk[block_no][block_offset], buf + bytes_written, to_write);
+        size_t to_write = std::min(BLOCK_SIZE - block_offset, static_cast<int>(encrypted.size() - bytes_written));
+        memcpy(&disk[block_no][block_offset], encrypted.c_str() + bytes_written, to_write);
         bytes_written += to_write;
     }
 

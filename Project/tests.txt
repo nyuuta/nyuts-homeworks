@@ -1,0 +1,40 @@
+TEST 1: Start with correct password
+1. Open terminal.
+2. Run:
+   ./myfs /tmp/myfs
+3. Enter password: password
+4. Expected: Access granted. Filesystem is mounted.
+
+TEST 2: Start with wrong password
+1. Run:
+   ./myfs /tmp/myfs
+2. Enter an incorrect password.
+3. Expected: Access denied: wrong password.
+4. Filesystem should NOT be mounted.
+
+ TEST 3: Create and write file
+1. Make sure filesystem is mounted:
+   ls /tmp/myfs
+2. Create a file:
+   echo "Hello FUSE" > /tmp/myfs/hello.txt
+3. Verify file exists:
+   ls /tmp/myfs
+
+ TEST 4: Read file
+1. Read the file:
+   cat /tmp/myfs/hello.txt
+2. Expected output:
+   Hello FUSE
+
+ TEST 5: Inaccessibility after process stops
+1. Stop ./myfs (press Ctrl+C in the terminal).
+2. Run:
+   ls /tmp/myfs
+3. Expected error:
+   ls: cannot access '/tmp/myfs': Transport endpoint is not connected
+
+ TEST 6: Check password again
+1. Run:
+   ./myfs /tmp/myfs
+2. Enter wrong password.
+3. Confirm access is denied.
